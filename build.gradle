@@ -1,0 +1,184 @@
+/*
+ * Copyright (c) 2020 com.stuforbes
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+buildscript {
+
+    ext {
+        kotlinVersion = "1.3.61"
+        kapacityCoreVersion = "0.1.6"
+
+        junitVersion = "5.6.0"
+        mockkVersion = "1.9"
+        assertJVersion = "3.11.1"
+    }
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        jcenter()
+        maven { url 'https://plugins.gradle.org/m2/' }
+    }
+}
+
+plugins {
+    id 'maven-publish'
+    id 'signing'
+    id 'org.jetbrains.kotlin.jvm' version '1.3.61'
+    id 'net.researchgate.release' version '2.8.1'
+    id 'java-gradle-plugin'
+}
+
+group 'com.stuforbes.kapacity'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    jcenter()
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation "com.stuforbes.kapacity:kapacity-core:${kapacityCoreVersion}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
+    testImplementation "io.mockk:mockk:$mockkVersion"
+    testImplementation "org.assertj:assertj-core:$assertJVersion"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+
+test {
+    useJUnitPlatform()
+}
+
+task setPublishVersion {
+    doLast {
+        publishing.publications.mavenJava.version = getVersion()
+    }
+}
+
+task buildAndPublish(type: GradleBuild) {
+    tasks = ['clean', 'test', 'release', 'setPublishVersion', 'publish']
+}
+
+release {
+    versionPropertyFile = 'version.properties'
+}
+
+signing {
+    sign configurations.archives
+}
+
+gradlePlugin {
+    plugins {
+        kapacity {
+            id = 'com.stuforbes.kapacity'
+            implementationClass = 'com.stuforbes.kapacity.KapacityPlugin'
+        }
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            customizePom(pom)
+            groupId 'com.stuforbes.kapacity'
+            artifactId 'kapacity-gradle-plugin'
+            version version
+
+            from components.java
+
+            // create the sign pom artifact
+            pom.withXml {
+                def pomFile = file("${project.buildDir}/generated-pom.xml")
+                writeTo(pomFile)
+                def pomAscFile = signing.sign(pomFile).signatureFiles[0]
+                artifact(pomAscFile) {
+                    classifier = null
+                    extension = 'pom.asc'
+                }
+            }
+
+            // create the signed artifacts
+            project.tasks.signArchives.signatureFiles.each {
+                artifact(it) {
+                    def matcher = it.file =~ /-(sources|javadoc)\.jar\.asc$/
+                    if (matcher.find()) {
+                        classifier = matcher.group(1)
+                    } else {
+                        classifier = null
+                    }
+                    extension = 'jar.asc'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            credentials {
+                username ossrhUsername
+                password ossrhPassword
+            }
+        }
+    }
+}
+
+def customizePom(pom) {
+    pom.withXml {
+        def root = asNode()
+
+        // eliminate test-scoped dependencies (no need in maven central POMs)
+        root.dependencies.removeAll { dep ->
+            dep.scope == "test"
+        }
+
+
+        // add all items necessary for maven central publication
+        root.children().last() + {
+            resolveStrategy = Closure.DELEGATE_FIRST
+
+            description 'Gradle plugin to execute Kapacity tests'
+            name 'Kapacity Gradle Plugin'
+            url 'https://github.com/stuforbes/kapacity-gradle-plugin'
+            organization {
+                name 'com.stuforbes'
+                url 'https://github.com/stuforbes'
+            }
+            issueManagement {
+                system 'GitHub'
+                url 'https://github.com/stuforbes/kapacity-gradle-plugin/issues'
+            }
+            licenses {
+                license {
+                    name 'MIT License'
+                    url 'https://github.com/stuforbes/kapacity-gradle-plugin/blob/master/LICENSE'
+                    distribution 'repo'
+                }
+            }
+            scm {
+                url 'https://github.com/stuforbes/kapacity-gradle-plugin'
+                connection 'scm:git:git://github.com/stuforbes/kapacity-gradle-plugin.git'
+                developerConnection 'scm:git:ssh://git@github.com:stuforbes/kapacity-gradle-plugin.git'
+            }
+            developers {
+                developer {
+                    name 'Stu Forbes'
+                }
+            }
+        }
+    }
+}

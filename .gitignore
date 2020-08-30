@@ -1,0 +1,25 @@
+target/
+.idea/
+.gradle
+.sbtserver/
+.travis.yml
+*.log
+build/
+
+*.iml
+.buckd/
+buck-out/
+out/
+*/node_modules/*
+*/server/logs/*
+*/build/*
+.DS_Store
+build.properties
+package-lock.json
+
+grafana.db
+
+# These 2 files are updated as part of the release process on Github. If they aren't ignored, the release plugin
+# will fail due to uncommitted changes
+secring.gpg
+gradle.properties

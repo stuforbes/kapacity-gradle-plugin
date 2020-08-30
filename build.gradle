@@ -64,16 +64,6 @@ test {
     useJUnitPlatform()
 }
 
-task setPublishVersion {
-    doLast {
-        publishing.publications.mavenJava.version = getVersion()
-    }
-}
-
-task buildAndPublish(type: GradleBuild) {
-    tasks = ['clean', 'test', 'release', 'setPublishVersion', 'publish']
-}
-
 release {
     versionPropertyFile = 'version.properties'
 }
@@ -87,98 +77,6 @@ gradlePlugin {
         kapacity {
             id = 'com.stuforbes.kapacity'
             implementationClass = 'com.stuforbes.kapacity.KapacityPlugin'
-        }
-    }
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            customizePom(pom)
-            groupId 'com.stuforbes.kapacity'
-            artifactId 'kapacity-gradle-plugin'
-            version version
-
-            from components.java
-
-            // create the sign pom artifact
-            pom.withXml {
-                def pomFile = file("${project.buildDir}/generated-pom.xml")
-                writeTo(pomFile)
-                def pomAscFile = signing.sign(pomFile).signatureFiles[0]
-                artifact(pomAscFile) {
-                    classifier = null
-                    extension = 'pom.asc'
-                }
-            }
-
-            // create the signed artifacts
-            project.tasks.signArchives.signatureFiles.each {
-                artifact(it) {
-                    def matcher = it.file =~ /-(sources|javadoc)\.jar\.asc$/
-                    if (matcher.find()) {
-                        classifier = matcher.group(1)
-                    } else {
-                        classifier = null
-                    }
-                    extension = 'jar.asc'
-                }
-            }
-        }
-    }
-    repositories {
-        maven {
-            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
-            credentials {
-                username ossrhUsername
-                password ossrhPassword
-            }
-        }
-    }
-}
-
-def customizePom(pom) {
-    pom.withXml {
-        def root = asNode()
-
-        // eliminate test-scoped dependencies (no need in maven central POMs)
-        root.dependencies.removeAll { dep ->
-            dep.scope == "test"
-        }
-
-
-        // add all items necessary for maven central publication
-        root.children().last() + {
-            resolveStrategy = Closure.DELEGATE_FIRST
-
-            description 'Gradle plugin to execute Kapacity tests'
-            name 'Kapacity Gradle Plugin'
-            url 'https://github.com/stuforbes/kapacity-gradle-plugin'
-            organization {
-                name 'com.stuforbes'
-                url 'https://github.com/stuforbes'
-            }
-            issueManagement {
-                system 'GitHub'
-                url 'https://github.com/stuforbes/kapacity-gradle-plugin/issues'
-            }
-            licenses {
-                license {
-                    name 'MIT License'
-                    url 'https://github.com/stuforbes/kapacity-gradle-plugin/blob/master/LICENSE'
-                    distribution 'repo'
-                }
-            }
-            scm {
-                url 'https://github.com/stuforbes/kapacity-gradle-plugin'
-                connection 'scm:git:git://github.com/stuforbes/kapacity-gradle-plugin.git'
-                developerConnection 'scm:git:ssh://git@github.com:stuforbes/kapacity-gradle-plugin.git'
-            }
-            developers {
-                developer {
-                    name 'Stu Forbes'
-                }
-            }
         }
     }
 }

@@ -29,10 +29,10 @@ fun Project.compileClasspathFiles() = project
         .getByName(COMPILE_CLASSPATH_CONFIGURATION)
         .fileCollection()
 
-fun Project.findBuildDirectoriesForSourceSets(sourceSet: String): FileCollection {
+fun Project.findBuildDirectoriesForSourceSets(sourceSetName: String): FileCollection {
     // TODO - can we remove the extra getProject() call here?
     val sourceSetContainer = project.extensions.getByType(SourceSetContainer::class.java)
-    val sourceSet = sourceSetContainer.find { ssc -> ssc.name == sourceSet }
+    val sourceSet = sourceSetContainer.find { ssc -> ssc.name == sourceSetName }
     return sourceSet
             ?.runtimeClasspath
             ?: this.files()

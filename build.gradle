@@ -34,11 +34,9 @@ plugins {
     id 'com.gradle.plugin-publish' version '0.12.0'
 }
 
-def props = new Properties()
-file("version.properties").withInputStream { props.load(it) }
+def publishVersion = version()
 
 group 'com.stuforbes.kapacity'
-version props.getProperty('version')
 
 repositories {
     mavenLocal()
@@ -71,6 +69,10 @@ release {
     versionPropertyFile = 'version.properties'
 }
 
+task buildAndPublish(type: GradleBuild) {
+    tasks = ['clean', 'test', 'release', 'publishPlugins']
+}
+
 pluginBundle {
     website = 'https://github.com/stuforbes/kapacity-gradle-plugin'
     vcsUrl = 'https://github.com/stuforbes/kapacity-gradle-plugin'
@@ -81,9 +83,16 @@ gradlePlugin {
     plugins {
         kapacity {
             id = 'com.stuforbes.kapacity'
+            version = publishVersion
             displayName = 'Kapacity Gradle Plugin'
             description = 'Plugin to execute Kapacity (https://github.com/stuforbes/kapacity) test suites'
             implementationClass = 'com.stuforbes.kapacity.KapacityPlugin'
         }
     }
+}
+
+def version() {
+    def props = new Properties()
+    file("version.properties").withInputStream { props.load(it) }
+    props.getProperty("version").replace("-SNAPSHOT", "")
 }

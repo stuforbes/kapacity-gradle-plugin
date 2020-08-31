@@ -1,0 +1,42 @@
+name: Kapacity master branch release
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - version.properties
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      - name: Cache Gradle packages
+        uses: actions/cache@v2
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
+      - name: Build with Gradle
+        env:
+          GIT_AUTHOR_NAME: "Github Action"
+          GIT_COMMITTER_NAME: "Github Action"
+          GIT_AUTHOR_EMAIL: "action@github.com"
+          GIT_COMMITTER_EMAIL: "action@github.com"
+          GITHUB_TOKEN: ${{ secrets.ADMIN_ACCESS_GITHUB_TOKEN }}
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+        run: |
+          mkdir -p ~/.gradle
+          touch ~/.gradle/gradle.properties
+          echo "gradle.publish.key=$GRADLE_PUBLISH_KEY" >> ~/.gradle/gradle.properties
+          echo "gradle.publish.secret=$GRADLE_PUBLISH_SECRET" >> ~/.gradle/gradle.properties
+          echo "githubToken=$GITHUB_TOKEN" >> ~/.gradle/gradle.properties
+          ./gradlew buildAndPublish
+          rm ~/.gradle/gradle.properties
